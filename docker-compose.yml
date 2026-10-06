@@ -1,0 +1,14 @@
+services:
+  qr-albaran:
+    build: .
+    image: qr-albaran:latest
+    container_name: qr-albaran
+    env_file: .env
+    ports:
+      - "${APP_PORT:-9094}:9094"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true

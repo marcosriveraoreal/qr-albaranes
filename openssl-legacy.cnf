@@ -1,0 +1,13 @@
+# Solo para SQL Server antiguos (2012/2014 sin parches) que no soportan TLS 1.2.
+# Se activa poniendo OPENSSL_CONF=/app/openssl-legacy.cnf en el .env
+openssl_conf = openssl_init
+
+[openssl_init]
+ssl_conf = ssl_sect
+
+[ssl_sect]
+system_default = system_default_sect
+
+[system_default_sect]
+MinProtocol = TLSv1
+CipherString = DEFAULT@SECLEVEL=0
