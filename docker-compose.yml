@@ -5,7 +5,7 @@ services:
     container_name: qr-albaran
     env_file: .env
     ports:
-      - "${APP_PORT:-9094}:9094"
+      - "${APP_PORT:-7341}:7341"
     restart: unless-stopped
     read_only: true
     tmpfs:

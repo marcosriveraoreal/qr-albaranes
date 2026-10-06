@@ -27,9 +27,9 @@ COPY app ./app
 RUN useradd --system --no-create-home appuser
 USER appuser
 
-EXPOSE 9094
+EXPOSE 7341
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9094/health', timeout=3)"
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7341/health', timeout=3)"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9094", "--workers", "2", "--proxy-headers"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7341", "--workers", "2", "--proxy-headers"]

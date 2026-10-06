@@ -1,4 +1,4 @@
-"""Acceso de solo lectura a SQL Server."""
+"""Acceso de solo lectura a SQL Server — tabla deliveries con JOINs."""
 from contextlib import closing
 from typing import Optional
 
@@ -7,45 +7,51 @@ import pyodbc
 from app.config import get_settings
 from app.models import Albaran
 
-TABLE = "receptions"
+# (campo Albaran, expresión SQL)
+# Si companies usa nombres de columna distintos a NAME/ADDRESS/LOCATION/CIF, ajusta las
+# filas client_* aquí.
+_FIELD_EXPRS: list[tuple[str, str]] = [
+    ("number",           "d.DELIVERY_NOTE"),
+    ("delivery_date",    "d.[DATE]"),
+    ("lot",              "d.LOT"),
+    ("plate",            "d.PLATE"),
+    ("trailer",          "d.TRAILER"),
+    ("driver_name",      "d.DRIVER_NAME"),
+    ("driver_nif",       "d.DRIVER_NIF"),
+    ("tare_time",        "d.OUT_TIME"),
+    ("tare_weight",      "d.TARE_WEIGHT"),
+    ("gross_time",       "d.IN_TIME"),
+    ("gross_weight",     "d.GROSS_WEIGHT"),
+    ("client_name",      "co.[NAME]"),
+    ("client_address",   "co.ADDRESS"),
+    ("client_city",      "co.LOCATION"),
+    ("origin",           "orig.[name]"),
+    ("destination",      "dest.[name]"),
+    ("product",          "art.[NAME]"),
+    ("operator_name",    "ag.[NAME]"),
+    ("operator_address", "ag.ADDRESS"),
+    ("operator_city",    "ag.LOCATION"),
+    ("operator_nif",     "ag.CIF"),
+    ("carrier_name",     "cr.[NAME]"),
+    ("carrier_address",  "cr.ADDRESS"),
+    ("carrier_city",     "cr.LOCATION"),
+    ("carrier_nif",      "cr.CIF"),
+    ("shipment",         "CAST(d.SHIPPING_ID AS varchar(20))"),
+]
 
-# Campo del albarán -> columna real de la tabla receptions.
-# AJUSTAR AQUÍ si los nombres de columna de la tabla son distintos.
-# (Solo son constantes de código, nunca entrada del usuario: no hay riesgo de inyección.)
-COLUMNS = {
-    "number": "delivery_note_number",
-    "delivery_date": "delivery_date",
-    "shipment": "shipment_number",
-    "lot": "lot_number",
-    "product": "product",
-    "client_name": "client_name",
-    "client_address": "client_address",
-    "client_city": "client_city",
-    "origin": "origin",
-    "destination": "destination",
-    "plate": "plate",
-    "trailer": "trailer",
-    "driver_name": "driver_name",
-    "driver_nif": "driver_nif",
-    "operator_name": "operator_name",
-    "operator_address": "operator_address",
-    "operator_city": "operator_city",
-    "operator_nif": "operator_nif",
-    "carrier_name": "carrier_name",
-    "carrier_address": "carrier_address",
-    "carrier_city": "carrier_city",
-    "carrier_nif": "carrier_nif",
-    "tare_time": "tare_date",
-    "tare_weight": "tare_weight",
-    "gross_time": "gross_date",
-    "gross_weight": "gross_weight",
-}
+_FIELD_NAMES = [f for f, _ in _FIELD_EXPRS]
 
-_FIELDS = Albaran.field_names()
 _SELECT = (
     "SELECT TOP 1 "
-    + ", ".join(f"[{COLUMNS[name]}]" for name in _FIELDS)
-    + f" FROM [{TABLE}] WHERE [{COLUMNS['number']}] = ?"
+    + ", ".join(expr for _, expr in _FIELD_EXPRS)
+    + " FROM [deliveries] d"
+    + " LEFT JOIN [companies] co ON co.id = d.CLIENT_ID"
+    + " LEFT JOIN [places] orig ON orig.id = d.ORIGIN_ID"
+    + " LEFT JOIN [places] dest ON dest.id = d.DESTINATION_ID"
+    + " LEFT JOIN [articles] art ON art.id = d.ARTICLE_ID"
+    + " LEFT JOIN [agencies] ag ON ag.id = d.AGENCY_ID"
+    + " LEFT JOIN [carriers] cr ON cr.id = d.CARRIER_ID"
+    + " WHERE d.DELIVERY_NOTE = ?"
 )
 
 
@@ -69,11 +75,11 @@ def _connection_string() -> str:
 
 
 def find_albaran(number: str) -> Optional[Albaran]:
-    """Devuelve el albarán con ese número, o None si no existe."""
+    """Devuelve el albarán con ese DELIVERY_NOTE, o None si no existe."""
     timeout = get_settings().db_timeout
     with closing(pyodbc.connect(_connection_string(), timeout=timeout, readonly=True)) as conn:
         conn.timeout = timeout
         row = conn.cursor().execute(_SELECT, number).fetchone()
     if row is None:
         return None
-    return Albaran(**dict(zip(_FIELDS, row)))
+    return Albaran(**dict(zip(_FIELD_NAMES, row)))
